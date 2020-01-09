@@ -96,7 +96,12 @@ void loop() {
   if(READ_OFFSET == 0){
     TIME_SINCE_SAMPLING_STARTED = micros();
   }
-   
+
+  if(loopTime - TIME_SINCE_LAST_SAMPLE < 0){
+    TIME_SINCE_LAST_SAMPLE = 0;
+    READ_OFFSET = 0;
+  }
+  
   if(loopTime - TIME_SINCE_LAST_SAMPLE > SAMPLE_DELAY){
     SAMPLES[READ_OFFSET] = analogReadFast(MICROPHONE_IN_PIN);
     READ_OFFSET++;
