@@ -34,6 +34,32 @@ int SAMPLES[ SAMPLE_FREQUENCY ];
 
 int SAMPLE_DELAY = 1000000 / SAMPLE_FREQUENCY;
 
+void connectToWiFi(){
+  while ( status != WL_CONNECTED) {
+    Serial.print("Attempting to connect to WiFi network named: ");
+    Serial.println(ssid);
+    // Connect to WPA/WPA2 network. Change this line if using open or WEP network:
+    status = WiFi.begin(ssid, pass);
+    // wait 10 seconds for connection:
+    delay(10000);
+  }
+
+  Serial.print("Connected to WiFi network: ");
+  Serial.println(ssid);
+}
+
+void connectToMQTTBroker(){
+  MQTT_CLIENT.begin(MQTT_BROKER, WiFi_Client);
+  
+  while (!MQTT_CLIENT.connect("ping-pong-o-tron", MQTT_USER, MQTT_PASS)) {
+    Serial.print(".");
+    delay(1000);
+  }
+  
+  Serial.println("Connected to MQTT Broker");
+  
+}
+
 void setup() {
 
   Serial.begin(115200);
@@ -47,33 +73,26 @@ void setup() {
     Serial.println("WiFi Shield present");
   }
 
-  while ( status != WL_CONNECTED) {
-    Serial.print("Attempting to connect to WiFi network named: ");
-    Serial.println(ssid);
-    // Connect to WPA/WPA2 network. Change this line if using open or WEP network:
-    status = WiFi.begin(ssid, pass);
-    // wait 10 seconds for connection:
-    delay(10000);
-  }
+  connectToWiFi();
 
-  Serial.print("Connected to WiFi network: ");
-  Serial.println(ssid);
-
-  MQTT_CLIENT.begin(MQTT_BROKER, WiFi_Client);
-  
-  while (!MQTT_CLIENT.connect("ping-pong-o-tron", MQTT_USER, MQTT_PASS)) {
-    Serial.print(".");
-    delay(1000);
-  }
-
-  Serial.println("Connected to MQTT Broker");
+  connectToMQTTBroker();  
 
 }
 
 void loop() {
-
+  
   long loopTime = micros();
 
+  if(WiFi.status() != WL_CONNECTED){
+    Serial.println("Lost connection to network. Attempting to re-establish...");
+    connectToWiFi();
+  }
+  
+  if(!MQTT_CLIENT.connected()){
+    Serial.println("Lost connection to broker. Attempting to re-establish...");
+    connectToMQTTBroker();
+  }
+  
   if(READ_OFFSET == 0){
     TIME_SINCE_SAMPLING_STARTED = micros();
   }
