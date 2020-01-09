@@ -25,17 +25,14 @@ MQTTClient MQTT_CLIENT(1024);
 
 int MICROPHONE_IN_PIN = A1;
 float TIME_SINCE_LAST_SAMPLE = micros();
+float TIME_SINCE_SAMPLING_STARTED = micros();
 
 int READS_IN_A_SECOND = 0;
 
 int READ_OFFSET = 0;
-int SAMPLES[ SAMPLE_FREQUENCY / PAYLOAD_CHUNKS ];
+int SAMPLES[ SAMPLE_FREQUENCY ];
 
 int SAMPLE_DELAY = 1000000 / SAMPLE_FREQUENCY;
-
-void messageReceived(String &topic, String &payload) {
-  Serial.println("incoming: " + topic + " - " + payload);
-}
 
 void setup() {
 
@@ -63,7 +60,6 @@ void setup() {
   Serial.println(ssid);
 
   MQTT_CLIENT.begin(MQTT_BROKER, WiFi_Client);
-  MQTT_CLIENT.onMessage(messageReceived);
   
   while (!MQTT_CLIENT.connect("ping-pong-o-tron", MQTT_USER, MQTT_PASS)) {
     Serial.print(".");
@@ -71,35 +67,39 @@ void setup() {
   }
 
   Serial.println("Connected to MQTT Broker");
-//  Serial.println("Subscribing to topic...");
-//  MQTT_CLIENT.subscribe("hello");
 
 }
 
 void loop() {
 
-  MQTT_CLIENT.loop();
   long loopTime = micros();
-  
+
+  if(READ_OFFSET == 0){
+    TIME_SINCE_SAMPLING_STARTED = micros();
+  }
+   
   if(loopTime - TIME_SINCE_LAST_SAMPLE > SAMPLE_DELAY){
     SAMPLES[READ_OFFSET] = analogReadFast(MICROPHONE_IN_PIN);
     READ_OFFSET++;
     TIME_SINCE_LAST_SAMPLE = loopTime;
   }
 
-  if(READ_OFFSET > SAMPLE_FREQUENCY / PAYLOAD_CHUNKS){
+  if(READ_OFFSET > SAMPLE_FREQUENCY){
      Serial.print(String(READ_OFFSET) + " ");
-     Serial.println(micros());
+     Serial.println(micros() - TIME_SINCE_SAMPLING_STARTED);
 
     String payload = "";
 
-    for(int i = 0; i < sizeof(SAMPLES); i++){
-      payload += String(SAMPLES[i]) + ",";
-    }
-
-    //Serial.println(payload);
+    for(int i = 0; i < SAMPLE_FREQUENCY; i++){
       
-    MQTT_CLIENT.publish("ping-pong-o-tron/sample/" + String(loopTime), payload);
+      payload += String(SAMPLES[i]) + ",";
+      
+      if(i % PAYLOAD_CHUNKS == 0 && i != 0){
+        MQTT_CLIENT.publish("ping-pong-o-tron/sample/" + String(loopTime), payload);
+        payload = "";
+      }
+      
+    }
     
     READ_OFFSET = 0;
     
