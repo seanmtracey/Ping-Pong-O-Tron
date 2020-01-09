@@ -35,98 +35,98 @@ int SAMPLES[ SAMPLE_FREQUENCY ];
 int SAMPLE_DELAY = 1000000 / SAMPLE_FREQUENCY;
 
 void connectToWiFi(){
-  while ( status != WL_CONNECTED) {
-    Serial.print("Attempting to connect to WiFi network named: ");
-    Serial.println(ssid);
-    // Connect to WPA/WPA2 network. Change this line if using open or WEP network:
-    status = WiFi.begin(ssid, pass);
-    // wait 10 seconds for connection:
-    delay(10000);
-  }
+	while ( status != WL_CONNECTED) {
+		Serial.print("Attempting to connect to WiFi network named: ");
+		Serial.println(ssid);
+		// Connect to WPA/WPA2 network. Change this line if using open or WEP network:
+		status = WiFi.begin(ssid, pass);
+		// wait 10 seconds for connection:
+		delay(10000);
+	}
 
-  Serial.print("Connected to WiFi network: ");
-  Serial.println(ssid);
+	Serial.print("Connected to WiFi network: ");
+	Serial.println(ssid);
 }
 
 void connectToMQTTBroker(){
-  MQTT_CLIENT.begin(MQTT_BROKER, WiFi_Client);
-  
-  while (!MQTT_CLIENT.connect("ping-pong-o-tron", MQTT_USER, MQTT_PASS)) {
-    Serial.print(".");
-    delay(1000);
-  }
-  
-  Serial.println("Connected to MQTT Broker");
-  
+	MQTT_CLIENT.begin(MQTT_BROKER, WiFi_Client);
+	
+	while (!MQTT_CLIENT.connect("ping-pong-o-tron", MQTT_USER, MQTT_PASS)) {
+		Serial.print(".");
+		delay(1000);
+	}
+	
+	Serial.println("Connected to MQTT Broker");
+	
 }
 
 void setup() {
 
-  Serial.begin(115200);
+	Serial.begin(115200);
 
-  // check for the presence of the shield:
-  if (WiFi.status() == WL_NO_SHIELD) {
-    Serial.println("WiFi shield not present");
-    // don't continue:
-    while (true);
-  } else {
-    Serial.println("WiFi Shield present");
-  }
+	// check for the presence of the shield:
+	if (WiFi.status() == WL_NO_SHIELD) {
+		Serial.println("WiFi shield not present");
+		// don't continue:
+		while (true);
+	} else {
+		Serial.println("WiFi Shield present");
+	}
 
-  connectToWiFi();
+	connectToWiFi();
 
-  connectToMQTTBroker();  
+	connectToMQTTBroker();  
 
 }
 
 void loop() {
-  
-  long loopTime = micros();
+	
+	long loopTime = micros();
 
-  if(WiFi.status() != WL_CONNECTED){
-    Serial.println("Lost connection to network. Attempting to re-establish...");
-    connectToWiFi();
-  }
-  
-  if(!MQTT_CLIENT.connected()){
-    Serial.println("Lost connection to broker. Attempting to re-establish...");
-    connectToMQTTBroker();
-  }
-  
-  if(READ_OFFSET == 0){
-    TIME_SINCE_SAMPLING_STARTED = micros();
-  }
+	if(WiFi.status() != WL_CONNECTED){
+		Serial.println("Lost connection to network. Attempting to re-establish...");
+		connectToWiFi();
+	}
+	
+	if(!MQTT_CLIENT.connected()){
+		Serial.println("Lost connection to broker. Attempting to re-establish...");
+		connectToMQTTBroker();
+	}
+	
+	if(READ_OFFSET == 0){
+		TIME_SINCE_SAMPLING_STARTED = micros();
+	}
 
-  if(loopTime - TIME_SINCE_LAST_SAMPLE < 0){
-    TIME_SINCE_LAST_SAMPLE = 0;
-    READ_OFFSET = 0;
-  }
-  
-  if(loopTime - TIME_SINCE_LAST_SAMPLE > SAMPLE_DELAY){
-    SAMPLES[READ_OFFSET] = analogReadFast(MICROPHONE_IN_PIN);
-    READ_OFFSET++;
-    TIME_SINCE_LAST_SAMPLE = loopTime;
-  }
+	if(loopTime - TIME_SINCE_LAST_SAMPLE < 0){
+		TIME_SINCE_LAST_SAMPLE = 0;
+		READ_OFFSET = 0;
+	}
+	
+	if(loopTime - TIME_SINCE_LAST_SAMPLE > SAMPLE_DELAY){
+		SAMPLES[READ_OFFSET] = analogReadFast(MICROPHONE_IN_PIN);
+		READ_OFFSET++;
+		TIME_SINCE_LAST_SAMPLE = loopTime;
+	}
 
-  if(READ_OFFSET > SAMPLE_FREQUENCY){
-     Serial.print(String(READ_OFFSET) + " ");
-     Serial.println(micros() - TIME_SINCE_SAMPLING_STARTED);
+	if(READ_OFFSET > SAMPLE_FREQUENCY){
+		 Serial.print(String(READ_OFFSET) + " ");
+		 Serial.println(micros() - TIME_SINCE_SAMPLING_STARTED);
 
-    String payload = "";
+		String payload = "";
 
-    for(int i = 0; i < SAMPLE_FREQUENCY; i++){
-      
-      payload += String(SAMPLES[i]) + ",";
-      
-      if(i % PAYLOAD_CHUNKS == 0 && i != 0){
-        MQTT_CLIENT.publish("ping-pong-o-tron/sample/" + String(loopTime), payload);
-        payload = "";
-      }
-      
-    }
-    
-    READ_OFFSET = 0;
-    
-  }
-  
+		for(int i = 0; i < SAMPLE_FREQUENCY; i++){
+			
+			payload += String(SAMPLES[i]) + ",";
+			
+			if(i % PAYLOAD_CHUNKS == 0 && i != 0){
+				MQTT_CLIENT.publish("ping-pong-o-tron/sample/" + String(loopTime), payload);
+				payload = "";
+			}
+			
+		}
+		
+		READ_OFFSET = 0;
+		
+	}
+	
 }
